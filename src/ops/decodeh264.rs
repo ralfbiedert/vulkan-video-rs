@@ -51,6 +51,28 @@ impl DecodeH264 {
             decode_info: *decode_info,
         }
     }
+    fn src_buffer_offset(&self) -> u64 {
+        // VUID-vkCmdDecodeVideoKHR-pDecodeInfo-07138
+        // srcBufferOffset must be an integer multiple of
+        // VkVideoCapabilitiesKHR::minBitstreamBufferOffsetAlignment
+        let alignment = self
+            .shared_parameters
+            .video_session()
+            .capabilities()
+            .min_bitstream_buffer_offset_alignment();
+        self.decode_info.offset.next_multiple_of(alignment)
+    }
+    fn src_buffer_range(&self) -> u64 {
+        // VUID-vkCmdDecodeVideoKHR-pDecodeInfo-07139
+        // srcBufferRange must be an integer multiple of
+        // VkVideoCapabilitiesKHR::minBitstreamBufferSizeAlignment
+        let alignment = self
+            .shared_parameters
+            .video_session()
+            .capabilities()
+            .min_bitstream_buffer_size_alignment();
+        self.decode_info.size.next_multiple_of(alignment)
+    }
 }
 
 impl AddToCommandBuffer for DecodeH264 {
@@ -132,8 +154,8 @@ impl AddToCommandBuffer for DecodeH264 {
         let video_decode_info = VideoDecodeInfoKHR::default()
             .push_next(&mut video_decode_info_h264)
             .src_buffer(native_buffer_h264)
-            .src_buffer_offset(self.decode_info.offset)
-            .src_buffer_range(self.decode_info.size)
+            .src_buffer_offset(self.src_buffer_offset())
+            .src_buffer_range(self.src_buffer_range())
             // .src_buffer_range(2736)
             .dst_picture_resource(picture_resource_dst)
             .setup_reference_slot(&video_reference_slot);
